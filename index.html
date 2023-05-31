@@ -323,6 +323,55 @@ function confirmTxtColumns() {
     closeTxtPopup();
   }
 }
+       //FUNÇÃO VALIDACAO 8 DIGITOS CD_PRO_FAT
+function confirmTxtColumns() {
+  var procedimentosSelect = document.getElementById('procedimentos-column');
+  var valoresSelect = document.getElementById('valores-column');
+  var procedimentosColumnIndex = parseInt(procedimentosSelect.value);
+  var valoresColumnIndex = parseInt(valoresSelect.value);
+
+  if (!isNaN(procedimentosColumnIndex) && !isNaN(valoresColumnIndex) && jsonData.length >= 2) {
+    var procedimentosColumn = jsonData.map(row => row[procedimentosColumnIndex]);
+    var valoresColumn = jsonData.map(row => row[valoresColumnIndex]);
+
+    // Validar os valores da primeira coluna
+    var invalidValues = [];
+    for (var i = 1; i < procedimentosColumn.length; i++) {
+      if (procedimentosColumn[i].toString().length !== 8) {
+        invalidValues.push(i);
+      }
+    }
+
+    if (invalidValues.length > 0) {
+      var errorMessage = 'Os seguintes valores na primeira coluna não possuem 8 dígitos:\n';
+      for (var j = 0; j < invalidValues.length; j++) {
+        errorMessage += 'Linha ' + invalidValues[j] + '\n';
+      }
+      alert(errorMessage);
+    } else {
+      var txtContent = '';
+      for (var k = 1; k < procedimentosColumn.length; k++) {
+        var firstColumn = procedimentosColumn[k].toString().substring(0, 8);
+        var secondColumn = procedimentosColumn[k].toString().substring(8, 74);
+        var thirdColumn = valoresColumn[k].toString().substring(0, 11);
+
+        txtContent += firstColumn.padEnd(8) + secondColumn.padEnd(66) + thirdColumn.padEnd(11) + '\n';
+      }
+
+      var link = document.createElement('a');
+      link.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(txtContent));
+      link.setAttribute('download', 'dados.txt');
+      link.style.display = 'none';
+      document.body.appendChild(link);
+
+      link.click();
+
+      document.body.removeChild(link);
+
+      closeTxtPopup();
+    }
+  }
+}
 
 
 
