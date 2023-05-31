@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Importar Valores de Procedimentos</title>
+    <style>
+    table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    th, td {
+        border: 1px solid black;
+        padding: 8px;
+    }
+
+    .popup-container {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: #f9f9f9;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        z-index: 1;
+    }
+
+    .popup-container h2 {
+        margin-top: 0;
+    }
+
+    .popup-container p {
+        margin-bottom: 10px;
+    }
+
+    .popup-container label {
+        display: block;
+    }
+
+    .popup-container button {
+        margin-top: 10px;
+    }
+
+    /* Adicionando espaço entre os botões e o painel */
+    #table-container {
+        margin-top: 20px;
+    }
+
+    /* Alteração da cor dos botões para azul */
+    button {
+        background-color: purple;
+        color: white;
+        padding: 8px 16px;
+        border: none;
+        cursor: pointer;
+        margin-right: 5px;
+    }
+
+    /* Alteração da cor do título para lilás */
+    h1 {
+        color: purple;
+    }
+</style>
+
+</head>
+<body>
+    <h1>Importar Valores de Procedimentos FJS</h1>
+    <input type="file" id="excel-file" accept=".xlsx, .xls" /><br><br>
+    <button id="round-btn">ARREDONDAR</button>
+    <button id="formato-mv-btn">FORMATO MV</button>
+    <button id="gerar-txt-btn">GERAR TXT</button>
+    <button id="export-excel-btn">EXPORTAR EXCEL</button>
+
+    <div id="table-container"></div>
+
+    <div class="popup-container" id="popup-container">
+        <h2>Arredondar Valores</h2>
+        <p>Selecione as colunas que deseja arredondar:</p>
+        <div id="popup-content"></div>
+        <button id="confirm-round-btn">OK</button>
+        <button id="cancel-round-btn">Cancelar</button>
+    </div>
+
+    <div class="popup-container" id="formato-mv-popup-container">
+        <h2>Formato MV</h2>
+        <p>Selecione as colunas que deseja formatar:</p>
+        <div id="formato-mv-popup-content"></div>
+        <button id="confirm-formato-mv-btn">OK</button>
+        <button id="cancel-formato-mv-btn">Cancelar</button>
+    </div>
+
+    <div class="popup-container" id="prompt-container">
+        <h2>Selecionar Colunas</h2>
+        <p>Selecione as colunas para gerar o arquivo TXT:</p>
+        <label for="procedimentos-column">Procedimentos:</label>
+        <select id="procedimentos-column"></select>
+        <br>
+        <label for="valores-column">Valores:</label>
+        <select id="valores-column"></select>
+        <br>
+        <button id="confirm-txt-columns-btn">OK</button>
+        <button id="cancel-txt-columns-btn">Cancelar</button>
+    </div>
+
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script>
+        var jsonData;
+        var promptContainer = document.getElementById('prompt-container');
+        var popupContainer = document.getElementById('popup-container');
+        var formatoMVPopupContainer = document.getElementById('formato-mv-popup-container');
+        var popupContent = document.getElementById('popup-content');
+        var formatoMVPopupContent = document.getElementById('formato-mv-popup-content');
+
+        function handleFile(e) {
+            var files = e.target.files;
+            var f = files[0];
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                var data = new Uint8Array(e.target.result);
+                var workbook = XLSX.read(data, { type: 'array' });
+                var sheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[sheetName];
+                jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                renderTable(jsonData);
+            };
+            reader.readAsArrayBuffer(f);
+        }
+
+        function renderTable(data) {
+            var container = document.getElementById('table-container');
+            container.innerHTML = '';
+            var table = document.createElement('table');
+
+            var headerRow = document.createElement('tr');
+            for (var i = 0; i < data[0].length; i++) {
+                var headerCell = document.createElement('th');
+                headerCell.textContent = data[0][i];
+                headerRow.appendChild(headerCell);
+            }
+            table.appendChild(headerRow);
+
+            for (var j = 1; j < data.length; j++) {
+                var row = document.createElement('tr');
+                for (var k = 0; k < data[j].length; k++) {
+                    var cell = document.createElement('td');
+                    cell.textContent = data[j][k];
+                    row.appendChild(cell);
+                }
+                table.appendChild(row);
+            }
+            container.appendChild(table);
+        }
+
+        function openPopup() {
+            var columns = jsonData[0];
+            popupContent.innerHTML = '';
+            for (var i = 0; i < columns.length; i++) {
+                var checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'columns';
+                checkbox.value = columns[i];
+                checkbox.checked = false; // Checkbox não está marcado por padrão
+                var label = document.createElement('label');
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(columns[i]));
+                popupContent.appendChild(label);
+            }
+            popupContainer.style.display = 'block';
+        }
+
+        function closePopup() {
+            popupContainer.style.display = 'none';
+        }
+
+        function roundValues() {
+            var selectedColumns = document.getElementsByName('columns');
+            for (var k = 0; k < selectedColumns.length; k++) {
+                if (selectedColumns[k].checked) {
+                    var columnIndex = jsonData[0].indexOf(selectedColumns[k].value);
+                    if (columnIndex !== -1) {
+                        for (var l = 1; l < jsonData.length; l++) {
+                            var value = parseFloat(jsonData[l][columnIndex]);
+                            if (!isNaN(value)) {
+                                jsonData[l][columnIndex] = Math.floor(value * 100) / 100;
+                            }
+                        }
+                    }
+                }
+            }
+            renderTable(jsonData);
+            closePopup();
+        }
+
+        function openFormatoMVPopup() {
+            var columns = jsonData[0];
+            formatoMVPopupContent.innerHTML = '';
+            for (var i = 0; i < columns.length; i++) {
+                var checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'formato-mv-columns';
+                checkbox.value = columns[i];
+                checkbox.checked = false;
+                var label = document.createElement('label');
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(columns[i]));
+                formatoMVPopupContent.appendChild(label);
+            }
+            formatoMVPopupContainer.style.display = 'block';
+        }
+
+        function closeFormatoMVPopup() {
+            formatoMVPopupContainer.style.display = 'none';
+        }
+
+        function formatToMV() {
+            var selectedColumns = document.getElementsByName('formato-mv-columns');
+            for (var k = 0; k < selectedColumns.length; k++) {
+                if (selectedColumns[k].checked) {
+                    var columnIndex = jsonData[0].indexOf(selectedColumns[k].value);
+                    if (columnIndex !== -1) {
+                        for (var l = 1; l < jsonData.length; l++) {
+                            var value = parseFloat(jsonData[l][columnIndex]);
+                            if (!isNaN(value)) {
+                                jsonData[l][columnIndex] = formatToMVString(value);
+                            }
+                        }
+                    }
+                }
+            }
+            renderTable(jsonData);
+            closeFormatoMVPopup();
+        }
+
+        function formatToMVString(value) {
+            var parts = value.toString().split('.');
+            var integerPart = parts[0].padStart(6, '0');
+            var decimalPart = parts[1] ? parts[1].padEnd(4, '0') : '0000';
+            return integerPart + ',' + decimalPart;
+        }
+
+        function generateTxt() {
+            openTxtPopup();
+        }
+
+        function exportExcel() {
+            var worksheet = XLSX.utils.aoa_to_sheet(jsonData);
+            var workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet 1');
+            XLSX.writeFile(workbook, 'data.xlsx');
+        }
+
+        document.getElementById('excel-file').addEventListener('change', handleFile);
+        document.getElementById('round-btn').addEventListener('click', openPopup);
+        document.getElementById('confirm-round-btn').addEventListener('click', roundValues);
+        document.getElementById('formato-mv-btn').addEventListener('click', openFormatoMVPopup);
+        document.getElementById('confirm-formato-mv-btn').addEventListener('click', formatToMV);
+        document.getElementById('gerar-txt-btn').addEventListener('click', generateTxt);
+        document.getElementById('export-excel-btn').addEventListener('click', exportExcel);
+        
+        //NOVAS FUNÇÕES 
+
+        function openTxtPopup() {
+  var columns = jsonData[0];
+  var procedimentosSelect = document.getElementById('procedimentos-column');
+  var valoresSelect = document.getElementById('valores-column');
+
+  // Limpar as opções existentes
+  procedimentosSelect.innerHTML = '';
+  valoresSelect.innerHTML = '';
+
+  // Preencher as opções com as colunas disponíveis
+  for (var i = 0; i < columns.length; i++) {
+    var option = document.createElement('option');
+    option.value = i;
+    option.text = columns[i];
+    procedimentosSelect.appendChild(option);
+
+    option = document.createElement('option');
+    option.value = i;
+    option.text = columns[i];
+    valoresSelect.appendChild(option);
+  }
+
+  promptContainer.style.display = 'block';
+}
+  
+
+//FUNCAO CONFIRMARTXTCOLUNAS
+function confirmTxtColumns() {
+  var procedimentosSelect = document.getElementById('procedimentos-column');
+  var valoresSelect = document.getElementById('valores-column');
+  var procedimentosColumnIndex = parseInt(procedimentosSelect.value);
+  var valoresColumnIndex = parseInt(valoresSelect.value);
+
+  if (!isNaN(procedimentosColumnIndex) && !isNaN(valoresColumnIndex) && jsonData.length >= 2) {
+    var procedimentosColumn = jsonData.map(row => row[procedimentosColumnIndex]);
+    var valoresColumn = jsonData.map(row => row[valoresColumnIndex]);
+
+    var txtContent = '';
+    for (var i = 1; i < procedimentosColumn.length; i++) {
+      var firstColumn = procedimentosColumn[i].toString().substring(0, 8);
+      var secondColumn = procedimentosColumn[i].toString().substring(8, 74);
+      var thirdColumn = valoresColumn[i].toString().substring(0, 11);
+
+      txtContent += firstColumn.padEnd(8) + secondColumn.padEnd(66) + thirdColumn.padEnd(11) + '\n';
+    }
+
+    // Cria um elemento de link de download
+    var link = document.createElement('a');
+    link.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(txtContent));
+    link.setAttribute('download', 'dados.txt');
+    link.style.display = 'none';
+    document.body.appendChild(link);
+
+    // Simula um clique no link de download
+    link.click();
+
+    // Remove o elemento de link de download
+    document.body.removeChild(link);
+
+    // Fechar o popup
+    closeTxtPopup();
+  }
+}
+
+
+
+
+
+        // Função adicional para fechar a caixa de diálogo de seleção de colunas para o arquivo de texto
+        function closeTxtPopup() {
+            var txtPopupContainer = document.getElementById('prompt-container');
+            txtPopupContainer.style.display = 'none';
+        }
+
+        // Adicionar listeners para os botões de confirmação e cancelamento da caixa de diálogo de seleção de colunas
+        document.getElementById('confirm-txt-columns-btn').addEventListener('click', confirmTxtColumns);
+        document.getElementById('cancel-txt-columns-btn').addEventListener('click', closeTxtPopup);
+        document.getElementById('cancel-round-btn').addEventListener('click', closePopup);
+        document.getElementById('cancel-formato-mv-btn').addEventListener('click', closeFormatoMVPopup);
+        document.getElementById('gerar-txt-btn').addEventListener('click', openTxtPopup);
+
+    </script>
+</body>
+</html>
